@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="images2/logo.png" type="image/x-icon">
+    <title>Evaluación del Formulario</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 50px;
+            max-width: 800px;
+        }
+        .card {
+            padding: 20px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            background-color: #fff;
+        }
+        .form-control {
+            border-radius: 20px;
+            border: 1px solid #ced4da;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .form-control:focus {
+            border-color: #ca091c;
+            box-shadow: 0 0 8px rgba(202, 9, 28, 0.5);
+        }
+        .btn-animated {
+            border-radius: 20px;
+            background-color: #ca091c;
+            color: #fff;
+            border: none;
+        }
+        .btn-animated:hover {
+            background-color: #f2939b;
+        }
+        .form-group i {
+            margin-right: 10px;
+            color: #ca091c;
+        }
+        #signature-canvas {
+            border: 1px solid #ced4da;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo text-center mb-4">
+                <img src="images2/logo.png" alt="Logo" style="max-width: 100px;">
+            </div>
+            <form id="evaluation-form">
+                <div class="form-group">
+                    <label for="uploaded-pdf"><i class="fas fa-file-pdf"></i> Cargar PDF del Empleado</label>
+                    <input type="file" class="form-control" id="uploaded-pdf" accept="application/pdf" required>
+                </div>
+                <div class="form-group">
+                    <label for="evaluator-name"><i class="fas fa-user"></i> Nombre del Evaluador</label>
+                    <input type="text" class="form-control" id="evaluator-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="evaluator-position"><i class="fas fa-briefcase"></i> Cargo del Evaluador</label>
+                    <input type="text" class="form-control" id="evaluator-position" required>
+                </div>
+                <div class="form-group">
+                    <label for="general-rating"><i class="fas fa-star"></i> Calificación General</label>
+                    <select class="form-control" id="general-rating" required>
+                        <option value="" disabled selected>Seleccione una calificación</option>
+                        <option value="Deficiente">Deficiente</option>
+                        <option value="Regular">Regular</option>
+                        <option value="Bueno">Bueno</option>
+                        <option value="Excelente">Excelente</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="evaluator-comments"><i class="fas fa-comments"></i> Comentarios</label>
+                    <textarea class="form-control" id="evaluator-comments" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="evaluator-signature"><i class="fas fa-signature"></i> Firma del Evaluador</label>
+                    <canvas id="evaluator-signature-canvas" width="400" height="200"></canvas>
+                    <button type="button" id="clear-evaluator-signature" class="btn btn-secondary btn-animated mt-2">Limpiar Firma</button>
+                </div>
+                <div class="form-group text-center">
+                    <button type="submit" class="btn btn-secondary btn-animated">Generar PDF <i class="fas fa-file-pdf"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const evaluatorCanvas = document.getElementById('evaluator-signature-canvas');
+            const evaluatorContext = evaluatorCanvas.getContext('2d');
+            let isEvaluatorDrawing = false;
+
+            function evaluatorStartPosition(e) {
+                isEvaluatorDrawing = true;
+                evaluatorDraw(e);
+            }
+
+            function evaluatorEndPosition() {
+                isEvaluatorDrawing = false;
+                evaluatorContext.beginPath();
+            }
+
+            function evaluatorDraw(e) {
+                if (!isEvaluatorDrawing) return;
+                evaluatorContext.lineWidth = 2;
+                evaluatorContext.strokeStyle = '#000';
+                evaluatorContext.lineCap = 'round';
+
+                const rect = evaluatorCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                evaluatorContext.lineTo(x, y);
+                evaluatorContext.stroke();
+                evaluatorContext.beginPath();
+                evaluatorContext.moveTo(x, y);
+            }
+
+            evaluatorCanvas.addEventListener('mousedown', evaluatorStartPosition);
+            evaluatorCanvas.addEventListener('mouseup', evaluatorEndPosition);
+            evaluatorCanvas.addEventListener('mousemove', evaluatorDraw);
+            evaluatorCanvas.addEventListener('mouseleave', evaluatorEndPosition);
+
+            $('#clear-evaluator-signature').click(function() {
+                evaluatorContext.clearRect(0, 0, evaluatorCanvas.width, evaluatorCanvas.height);
+            });
+
+            function extractPdfInfo(file, callback) {
+                const fileReader = new FileReader();
+                fileReader.onload = function() {
+                    const typedarray = new Uint8Array(this.result);
+                    pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+                        let text = '';
+                        let pageNumber = 1;
+
+                        function extractPageText() {
+                            pdf.getPage(pageNumber).then(function(page) {
+                                page.getTextContent().then(function(textContent) {
+                                    textContent.items.forEach(function(item) {
+                                        text += item.str + ' ';
+                                    });
+
+                                    if (pageNumber < pdf.numPages) {
+                                        pageNumber++;
+                                        extractPageText();
+                                    } else {
+                                        callback(text);
+                                    }
+                                });
+                            });
+                        }
+
+                        extractPageText();
+                    });
+                };
+                fileReader.readAsArrayBuffer(file);
+            }
+
+            $('#evaluation-form').on('submit', function(e) {
+                e.preventDefault();
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                const evaluatorName = $('#evaluator-name').val();
+                const evaluatorPosition = $('#evaluator-position').val();
+                const generalRating = $('#general-rating').val();
+                const evaluatorComments = $('#evaluator-comments').val();
+
+                const uploadedPdf = $('#uploaded-pdf')[0].files[0];
+                extractPdfInfo(uploadedPdf, function(text) {
+                    // Buscar nombre e identificación
+                    const namePattern = /Nombre\s*:\s*(.*?)(?:\s|$)/i;
+                    const idPattern = /ID\s*:\s*(\d+)/i; // Busca la etiqueta ID seguida de un número
+
+                    const nameMatch = text.match(namePattern);
+                    const idMatch = text.match(idPattern);
+
+                    const extractedName = nameMatch ? nameMatch[1] : 'Desconocido';
+                    const extractedId = idMatch ? idMatch[1] : 'Desconocida';
+
+                    const margin = 5; // en mm
+                    const pageWidth = doc.internal.pageSize.width; // Ancho de la página
+                    const pageHeight = doc.internal.pageSize.height; // Altura de la página
+                    let y = margin; // Posición inicial en el eje Y
+                    const lineHeight = 10; // Altura de línea
+
+                    doc.setFont('Arial');
+                    doc.setFontSize(18);
+                    doc.text("Evaluación del Formulario", pageWidth / 2, y, { align: "center" });
+                    y += 15; // Espacio debajo del título
+
+                    doc.setFontSize(12);
+                    doc.text(`Nombre del Empleado: ${extractedName}`, margin, y);
+                    y += lineHeight;
+                    doc.text(`Identificación: ${extractedId}`, margin, y);
+                    y += lineHeight + 10; // Espacio adicional
+
+                    doc.text(`Nombre del Evaluador: ${evaluatorName}`, margin, y);
+                    y += lineHeight;
+                    doc.text(`Cargo del Evaluador: ${evaluatorPosition}`, margin, y);
+                    y += lineHeight + 10; // Espacio adicional
+
+                    doc.text(`Calificación General: ${generalRating}`, margin, y);
+                    y += lineHeight + 10; // Espacio adicional
+
+                    const commentText = `Comentarios: ${evaluatorComments}`;
+                    const commentLines = doc.splitTextToSize(commentText, pageWidth - 2 * margin);
+
+                    commentLines.forEach((line) => {
+                        if (y + lineHeight > pageHeight - margin) {
+                            doc.addPage();
+                            y = margin;
+                        }
+                        doc.text(line, margin, y);
+                        y += lineHeight;
+                    });
+
+                    y += 10; 
+
+                    const evaluatorSignatureDataUrl = evaluatorCanvas.toDataURL('image/png');
+                    doc.text('Firma del Evaluador:', margin, y);
+                    doc.addImage(evaluatorSignatureDataUrl, 'PNG', margin, y + 10, 180, 40);
+                    y += 60; // Ajusta la altura después de la firma
+
+                    doc.save(`EVALUACION_INDUCCION_${evaluatorName.toUpperCase()}.pdf`);
+                    $('#evaluation-form')[0].reset();
+                    evaluatorContext.clearRect(0, 0, evaluatorCanvas.width, evaluatorCanvas.height);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
